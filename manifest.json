@@ -1,0 +1,24 @@
+{
+  "manifest_version": 3,
+  "name": "Fernet EnDe",
+  "description": "Encrypt & Decrypt text using Fernet symmetric encryption",
+  "version": "0.0.1",
+  "author": "huyly0909",
+  "permissions": [
+    "storage",
+    "clipboardWrite"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}
