@@ -1,5 +1,5 @@
 /**
- * Popup UI Logic — Fernet EnDe Extension
+ * Popup UI Logic — EnDe Extension
  */
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -26,7 +26,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const btnEye = document.getElementById('btnEye');
   const eyeIcon = document.getElementById('eyeIcon');
   const eyeOffIcon = document.getElementById('eyeOffIcon');
-  const btnSaveKey = document.getElementById('btnSaveKey');
+  const btnCopyKey = document.getElementById('btnCopyKey');
   const btnGenerateKey = document.getElementById('btnGenerateKey');
   const keyStatus = document.getElementById('keyStatus');
 
@@ -47,6 +47,8 @@ document.addEventListener('DOMContentLoaded', () => {
   let savedKey = null;
   let toastTimeout = null;
   let errorTimeout = null;
+  let keyHidden = true;     // tracks whether key is in hidden mode
+  let realKeyValue = '';    // the actual key value (since we mask the input)
 
   // ── Init ─────────────────────────────────────────────────────────
 
@@ -54,16 +56,49 @@ document.addEventListener('DOMContentLoaded', () => {
 
   async function init() {
     // Load key from storage
-    const result = await chrome.storage.local.get('fernetKey');
+    const result = await chrome.storage.local.get(['fernetKey', 'needsKeySetup']);
     if (result.fernetKey) {
       savedKey = result.fernetKey;
-      keyInput.value = savedKey;
+      realKeyValue = savedKey;
+      applyKeyMask();
       noKeyOverlay.classList.add('hidden');
       setKeyStatus('Key loaded', 'info');
     } else {
       noKeyOverlay.classList.remove('hidden');
     }
+
+    // If opened via context menu with no key → redirect to key setup
+    if (result.needsKeySetup) {
+      await chrome.storage.local.remove('needsKeySetup');
+      switchMode('encrypt');
+      keyInput.placeholder = 'Paste key or press ↻ to generate';
+      keyHidden = false;
+      eyeIcon.classList.add('hidden');
+      eyeOffIcon.classList.remove('hidden');
+      applyKeyMask();
+      keyInput.focus();
+    }
   }
+
+  // ── Key masking helpers ────────────────────────────────────────
+
+  function applyKeyMask() {
+    if (keyHidden && realKeyValue.length > 0) {
+      const last4 = realKeyValue.slice(-4);
+      keyInput.value = '••••••••' + last4;
+      keyInput.type = 'text';
+    } else {
+      keyInput.value = realKeyValue;
+      keyInput.type = 'text';
+    }
+  }
+
+  // Track real key value when user types (only when not masked)
+  keyInput.addEventListener('input', () => {
+    if (!keyHidden) {
+      realKeyValue = keyInput.value;
+    }
+  });
 
   // ── Toggle ───────────────────────────────────────────────────────
 
@@ -98,29 +133,68 @@ document.addEventListener('DOMContentLoaded', () => {
   // ── Eye Toggle ───────────────────────────────────────────────────
 
   btnEye.addEventListener('click', () => {
-    const isPassword = keyInput.type === 'password';
-    keyInput.type = isPassword ? 'text' : 'password';
-    eyeIcon.classList.toggle('hidden', !isPassword);
-    eyeOffIcon.classList.toggle('hidden', isPassword);
+    keyHidden = !keyHidden;
+    eyeIcon.classList.toggle('hidden', !keyHidden);
+    eyeOffIcon.classList.toggle('hidden', keyHidden);
+    applyKeyMask();
   });
 
   // ── Generate Key ─────────────────────────────────────────────────
 
-  btnGenerateKey.addEventListener('click', () => {
+  btnGenerateKey.addEventListener('click', async () => {
     const newKey = Fernet.generateKey();
-    keyInput.value = newKey;
-    setKeyStatus('New key generated — save it!', 'warning');
+    realKeyValue = newKey;
+    applyKeyMask();
 
-    // Highlight save button
-    btnSaveKey.classList.add('highlight');
+    // Auto-save immediately
+    await chrome.storage.local.set({ fernetKey: newKey });
+    savedKey = newKey;
+    noKeyOverlay.classList.add('hidden');
+    setKeyStatus('New key generated & saved', 'success');
   });
 
-  // ── Save Key ─────────────────────────────────────────────────────
+  // ── Copy Key ────────────────────────────────────────────────────
 
-  btnSaveKey.addEventListener('click', () => saveKey());
+  btnCopyKey.addEventListener('click', async () => {
+    const key = realKeyValue.trim();
+    if (!key) {
+      showError('No key to copy');
+      return;
+    }
+    await navigator.clipboard.writeText(key);
+    showToast('Key copied to clipboard!');
+  });
+
+  // ── Auto-save key on blur (when dirty) ──────────────────────────
+
+  keyInput.addEventListener('focus', () => {
+    // When focusing, switch to reveal mode so user can edit
+    if (keyHidden) {
+      keyHidden = false;
+      eyeIcon.classList.add('hidden');
+      eyeOffIcon.classList.remove('hidden');
+      applyKeyMask();
+    }
+  });
+
+  keyInput.addEventListener('blur', async () => {
+    const key = realKeyValue.trim();
+
+    // Always re-mask on blur
+    keyHidden = true;
+    eyeIcon.classList.remove('hidden');
+    eyeOffIcon.classList.add('hidden');
+    realKeyValue = key; // trim stored value
+    applyKeyMask();
+
+    // Auto-save if dirty
+    if (key && key !== savedKey) {
+      await saveKey();
+    }
+  });
 
   async function saveKey() {
-    const key = keyInput.value.trim();
+    const key = realKeyValue.trim();
 
     if (!key) {
       setKeyStatus('Please enter a key', 'error');
@@ -136,12 +210,6 @@ document.addEventListener('DOMContentLoaded', () => {
     savedKey = key;
     noKeyOverlay.classList.add('hidden');
     setKeyStatus('Key saved ✓', 'success');
-    btnSaveKey.classList.remove('highlight');
-
-    // Always hide key after save
-    keyInput.type = 'password';
-    eyeIcon.classList.remove('hidden');
-    eyeOffIcon.classList.add('hidden');
 
     showToast('Key saved successfully');
   }
@@ -206,7 +274,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Use the key from input (might be unsaved), fall back to saved
-    let key = keyInput.value.trim() || savedKey;
+    let key = realKeyValue.trim() || savedKey;
 
     if (!key) {
       showError('Please set a Fernet key first');

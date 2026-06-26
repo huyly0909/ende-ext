@@ -1,4 +1,4 @@
-# 🔐 Fernet EnDe
+# Fernet EnDe
 
 A simple Chrome extension to **encrypt & decrypt** text using [Fernet](https://github.com/fernet/spec/blob/master/Spec.md) symmetric encryption.
 

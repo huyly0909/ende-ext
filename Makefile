@@ -8,6 +8,7 @@ ZIP_NAME     := ende-$(TIMESTAMP).zip
 SRC_FILES := \
 	manifest.json \
 	fernet.js \
+	background.js \
 	popup.html \
 	popup.css \
 	popup.js \

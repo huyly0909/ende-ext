@@ -330,9 +330,9 @@ body {
   box-shadow: 0 4px 16px rgba(168, 85, 247, 0.25);
 }
 
-.save-btn:hover {
-  border-color: rgba(52, 211, 153, 0.3);
-  color: var(--success);
+.copy-key-btn:hover {
+  border-color: var(--border-focus);
+  color: var(--accent-purple);
 }
 
 .eye-btn:hover {
@@ -364,18 +364,6 @@ body {
 @keyframes spin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
-}
-
-.save-btn.highlight {
-  background: var(--accent-gradient);
-  border-color: transparent;
-  color: white;
-  animation: pulseGlow 1.5s ease-in-out infinite;
-}
-
-@keyframes pulseGlow {
-  0%, 100% { box-shadow: 0 0 6px rgba(52, 211, 153, 0.3); }
-  50% { box-shadow: 0 0 16px rgba(52, 211, 153, 0.6); }
 }
 
 .copy-btn {
